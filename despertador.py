@@ -1,49 +1,21 @@
-"""Despertador Pato: a la hora indicada abre un video al azar de YouTube.
+"""Despertador Pato (versión terminal): a la hora indicada abre un video al azar de YouTube.
 
 Uso:
     py despertador.py 07:30          # suena a las 07:30 (si ya pasó, mañana)
     py despertador.py --en 10        # suena dentro de 10 minutos
-    py despertador.py 07:30 --archivo mis_videos.txt
+    py despertador.py 07:30 --archivo mis_videos.txt --posponer 10
+
+Para la interfaz gráfica, abrí "Despertador.pyw" o ejecutá: py despertador_gui.py
 """
 
 import argparse
-import random
-import socket
 import sys
 import time
 import webbrowser
 from datetime import datetime, timedelta
-from pathlib import Path
-from urllib.parse import urlparse
 
-ARCHIVO_POR_DEFECTO = Path(__file__).with_name("urls.txt")
-DOMINIOS_YOUTUBE = {"youtube.com", "www.youtube.com", "m.youtube.com",
-                    "music.youtube.com", "youtu.be"}
-
-
-def es_url_youtube(url):
-    partes = urlparse(url)
-    return partes.scheme in ("http", "https") and partes.netloc.lower() in DOMINIOS_YOUTUBE
-
-
-def cargar_urls(ruta):
-    """Lee una URL por línea, ignorando líneas vacías y comentarios (#)."""
-    try:
-        lineas = Path(ruta).read_text(encoding="utf-8").splitlines()
-    except FileNotFoundError:
-        print(f"⚠ No se encontró el archivo de URLs: {ruta}")
-        return []
-
-    urls = []
-    for numero, linea in enumerate(lineas, start=1):
-        linea = linea.strip()
-        if not linea or linea.startswith("#"):
-            continue
-        if es_url_youtube(linea):
-            urls.append(linea)
-        else:
-            print(f"⚠ Línea {numero} ignorada (no es una URL de YouTube): {linea}")
-    return urls
+from nucleo import (ARCHIVO_URLS, cargar_config, cargar_urls, elegir_video,
+                    guardar_config, hay_internet, sonido_de_respaldo)
 
 
 def calcular_hora_alarma(hora=None, minutos=None, ahora=None):
@@ -57,27 +29,6 @@ def calcular_hora_alarma(hora=None, minutos=None, ahora=None):
     if objetivo <= ahora:
         objetivo += timedelta(days=1)
     return objetivo
-
-
-def hay_internet(host="www.youtube.com", puerto=443, timeout=3):
-    try:
-        socket.create_connection((host, puerto), timeout=timeout).close()
-        return True
-    except OSError:
-        return False
-
-
-def sonido_de_respaldo(repeticiones=10):
-    """Beep insistente para cuando no se puede abrir YouTube."""
-    try:
-        import winsound
-        for _ in range(repeticiones):
-            winsound.Beep(1000, 400)
-            time.sleep(0.2)
-    except ImportError:
-        for _ in range(repeticiones):
-            print("\a", end="", flush=True)
-            time.sleep(0.6)
 
 
 def esperar_hasta(objetivo):
@@ -106,11 +57,24 @@ def sonar(urls):
         sonido_de_respaldo()
         return
 
-    url = random.choice(urls)
+    config = cargar_config()
+    url = elegir_video(urls, config.historial)
     print(f"▶ Reproduciendo: {url}")
-    if not webbrowser.open(url):
+    if webbrowser.open(url):
+        config.registrar_video(url)
+        guardar_config(config)
+    else:
         print("No se pudo abrir el navegador: usando sonido de respaldo.")
         sonido_de_respaldo()
+
+
+def preguntar_posponer(minutos, entrada=input):
+    """Devuelve True si el usuario quiere posponer la alarma."""
+    try:
+        respuesta = entrada(f"Enter = apagar · p + Enter = posponer {minutos} min: ")
+    except EOFError:
+        return False
+    return respuesta.strip().lower() in ("p", "posponer")
 
 
 def hora_valida(texto):
@@ -131,15 +95,17 @@ def minutos_validos(texto):
     return valor
 
 
-def main(argv=None):
+def main(argv=None, entrada=input):
     parser = argparse.ArgumentParser(
         description="Despertador que abre un video al azar de YouTube.")
     parser.add_argument("hora", nargs="?", type=hora_valida,
                         help="hora de la alarma en formato HH:MM (24 h)")
     parser.add_argument("--en", type=minutos_validos, metavar="MINUTOS",
                         help="hacer sonar la alarma dentro de N minutos (acepta decimales)")
-    parser.add_argument("--archivo", default=ARCHIVO_POR_DEFECTO,
+    parser.add_argument("--archivo", default=ARCHIVO_URLS,
                         help="archivo con las URLs de YouTube (por defecto: urls.txt)")
+    parser.add_argument("--posponer", type=minutos_validos, default=5, metavar="MINUTOS",
+                        help="minutos que se pospone la alarma (por defecto: 5)")
     args = parser.parse_args(argv)
 
     if (args.hora is None) == (args.en is None):
@@ -152,17 +118,20 @@ def main(argv=None):
         print("⚠ No hay videos cargados: cuando suene se usará el sonido de respaldo.")
 
     objetivo = calcular_hora_alarma(args.hora, args.en)
-    print(f"Alarma programada para el {objetivo:%d/%m a las %H:%M:%S}")
+    while True:
+        print(f"Alarma programada para el {objetivo:%d/%m a las %H:%M:%S}")
+        try:
+            esperar_hasta(objetivo)
+        except KeyboardInterrupt:
+            print("\nAlarma cancelada.")
+            return 1
 
-    try:
-        esperar_hasta(objetivo)
-    except KeyboardInterrupt:
-        print("\nAlarma cancelada.")
-        return 1
-
-    # Se relee el archivo por si lo editaste mientras esperaba.
-    sonar(cargar_urls(args.archivo) or urls)
-    return 0
+        # Se relee el archivo por si lo editaste mientras esperaba.
+        sonar(cargar_urls(args.archivo) or urls)
+        if not preguntar_posponer(f"{args.posponer:g}", entrada):
+            print("Alarma apagada. ¡Buen día!")
+            return 0
+        objetivo = datetime.now() + timedelta(minutes=args.posponer)
 
 
 if __name__ == "__main__":
