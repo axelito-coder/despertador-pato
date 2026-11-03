@@ -28,7 +28,15 @@ Qué podés hacer:
 - **Probar alarma**, para ver cómo suena sin esperar.
 - Si no hay videos, no hay internet o no se puede abrir el navegador, suena un **beep de respaldo** hasta que la apagues.
 
-Las alarmas se guardan en `alarmas.json`, en la misma carpeta, así que siguen ahí la próxima vez que abras el programa.
+Las alarmas se guardan en `alarmas.json`, así que siguen ahí la próxima vez que abras el programa.
+
+### ¿Dónde se guardan los datos?
+
+Normalmente en la misma carpeta del programa (`alarmas.json` y `urls.txt`).
+
+Si Windows no deja escribir en esa carpeta (pasa, por ejemplo, con carpetas creadas directamente en `D:\` sin permisos de administrador), el programa usa `%APPDATA%\DespertadorPato`. La primera vez copia ahí la lista de videos. El botón *Abrir urls.txt* de la pestaña *Videos* siempre abre el archivo que se está usando.
+
+Si algo falla al guardar, aparece un aviso amarillo arriba de todo, y las alarmas suenan igual mientras el programa esté abierto. Los errores inesperados quedan anotados en `errores.log`, en esa misma carpeta de datos.
 
 > **Importante:** el programa tiene que estar abierto para que suenen las alarmas. Si lo cerrás, te pregunta si preferís minimizarlo.
 

@@ -3,6 +3,7 @@
 import json
 import os
 import random
+import shutil
 import socket
 import time
 import uuid
@@ -13,8 +14,37 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 CARPETA = Path(__file__).resolve().parent
-ARCHIVO_URLS = CARPETA / "urls.txt"
-ARCHIVO_CONFIG = CARPETA / "alarmas.json"
+CARPETA_APPDATA = Path(os.environ.get("APPDATA") or Path.home()) / "DespertadorPato"
+
+
+def es_escribible(carpeta):
+    """Prueba de verdad si se puede escribir (os.access no es confiable en Windows)."""
+    prueba = Path(carpeta) / ".prueba_escritura"
+    try:
+        prueba.write_text("x", encoding="utf-8")
+        prueba.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def elegir_carpeta_datos(carpeta=CARPETA, respaldo=CARPETA_APPDATA):
+    """Los datos van junto al programa; si Windows no deja escribir ahí
+    (por ejemplo en D:\\ sin permisos de administrador), van a %APPDATA%.
+    La primera vez se copia la lista de videos que venía con el programa."""
+    if es_escribible(carpeta):
+        return Path(carpeta)
+    respaldo = Path(respaldo)
+    respaldo.mkdir(parents=True, exist_ok=True)
+    urls_originales = Path(carpeta) / "urls.txt"
+    if not (respaldo / "urls.txt").exists() and urls_originales.exists():
+        shutil.copyfile(urls_originales, respaldo / "urls.txt")
+    return respaldo
+
+
+CARPETA_DATOS = elegir_carpeta_datos()
+ARCHIVO_URLS = CARPETA_DATOS / "urls.txt"
+ARCHIVO_CONFIG = CARPETA_DATOS / "alarmas.json"
 
 DOMINIOS_YOUTUBE = {"youtube.com", "www.youtube.com", "m.youtube.com",
                     "music.youtube.com", "youtu.be"}

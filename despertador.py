@@ -62,7 +62,10 @@ def sonar(urls):
     print(f"▶ Reproduciendo: {url}")
     if webbrowser.open(url):
         config.registrar_video(url)
-        guardar_config(config)
+        try:
+            guardar_config(config)
+        except OSError:
+            pass   # el historial es opcional: si no se puede guardar, no pasa nada
     else:
         print("No se pudo abrir el navegador: usando sonido de respaldo.")
         sonido_de_respaldo()

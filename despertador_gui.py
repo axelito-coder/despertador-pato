@@ -6,11 +6,12 @@ Abrilo con doble clic en "Despertador.pyw" o con:  py despertador_gui.py
 import os
 import threading
 import tkinter as tk
+import traceback
 import webbrowser
 from datetime import datetime, timedelta
 from tkinter import messagebox, ttk
 
-from nucleo import (ARCHIVO_URLS, DIAS_CORTOS, Alarma, cargar_config, cargar_urls,
+from nucleo import (ARCHIVO_URLS, CARPETA_DATOS, DIAS_CORTOS, Alarma, cargar_config, cargar_urls,
                     elegir_video, es_url_youtube, guardar_config, guardar_urls,
                     hay_internet, sonido_de_respaldo, texto_cuando, texto_falta,
                     texto_fecha)
@@ -30,6 +31,7 @@ C = {
     "naranja": "#FF9F43",
     "peligro": "#FF6B6B",
     "oscuro": "#1A1A1A",
+    "aviso_fondo": "#3A2E12",
 }
 FUENTE = "Segoe UI"
 TOLERANCIA = timedelta(hours=1)   # si la PC estuvo suspendida, suena igual si pasó menos de esto
@@ -410,6 +412,7 @@ class App:
         self.cola = []            # alarmas esperando para sonar
         self.ventana_sonando = None
         self._minuto = None
+        self._avisos = set()
 
         self._estilos()
         self._armar_ventana()
@@ -439,8 +442,16 @@ class App:
         r.protocol("WM_DELETE_WINDOW", self.al_cerrar)
         r.iconphoto(True, icono_pato())
 
+        # Franja para avisos importantes (por ejemplo, si no se puede guardar).
+        self.lbl_aviso = tk.Label(r, bg=C["aviso_fondo"], fg=C["acento"], font=(FUENTE, 9, "bold"),
+                                  justify="left", anchor="w", padx=px(16), pady=px(8),
+                                  wraplength=px(460))
+        self.lbl_aviso.bind("<Configure>", lambda e: self.lbl_aviso.configure(
+            wraplength=max(px(200), e.width - px(32))))
+
         cab = tk.Frame(r, bg=C["fondo"])
         cab.pack(fill="x", padx=px(28), pady=(px(22), px(6)))
+        self._cabecera = cab
         tk.Label(cab, text="DESPERTADOR PATO", font=(FUENTE, 9, "bold"), fg=C["acento"],
                  bg=C["fondo"]).pack(anchor="w")
         fila = tk.Frame(cab, bg=C["fondo"])
@@ -636,10 +647,30 @@ class App:
             widget.bind("<Double-Button-1>", lambda e, a=alarma: self.editar_alarma(a))
 
     def _guardar_y_refrescar(self):
-        guardar_config(self.cfg)
+        # Primero se programa y se muestra la alarma; guardar va al final para
+        # que un error al escribir el archivo nunca impida que suene.
         self.recalcular_proximas()
         self.dibujar_alarmas()
         self.actualizar_proxima()
+        self._guardar()
+
+    def _guardar(self):
+        try:
+            guardar_config(self.cfg)
+        except OSError as error:
+            self.mostrar_aviso(
+                "guardar",
+                "⚠ No se pudieron guardar las alarmas "
+                f"({error.strerror or error}). Van a sonar igual mientras el programa "
+                "esté abierto, pero se pierden al cerrarlo.")
+
+    def mostrar_aviso(self, clave, texto):
+        """Muestra un aviso en la franja superior (cada tipo de aviso, una vez)."""
+        if clave in self._avisos:
+            return
+        self._avisos.add(clave)
+        self.lbl_aviso.configure(text=texto)
+        self.lbl_aviso.pack(fill="x", before=self._cabecera)
 
     def nueva_alarma(self):
         dialogo = DialogoAlarma(self.raiz)
@@ -672,12 +703,14 @@ class App:
             return
         if 1 <= minutos <= 120 and minutos != self.cfg.posponer_minutos:
             self.cfg.posponer_minutos = minutos
-            guardar_config(self.cfg)
+            self._guardar()
 
     # ---------- reloj y disparo
 
     def tic(self):
         ahora = datetime.now()
+        # Se reprograma antes que nada: si algo falla más abajo, el reloj sigue andando.
+        self.raiz.after(max(50, 1000 - ahora.microsecond // 1000), self.tic)
         self.lbl_reloj.configure(text=f"{ahora:%H:%M}")
         self.lbl_segundos.configure(text=f"{ahora:%S}")
         self.lbl_fecha.configure(text=texto_fecha(ahora).capitalize())
@@ -687,7 +720,6 @@ class App:
             self._minuto = ahora.minute
             self.dibujar_alarmas()
         self.actualizar_proxima(ahora)
-        self.raiz.after(max(50, 1000 - ahora.microsecond // 1000), self.tic)
 
     def revisar_alarmas(self, ahora):
         cambios = False
@@ -710,8 +742,8 @@ class App:
             self.cola.extend(alarma for _, alarma in vencidas)
 
         if cambios:
-            guardar_config(self.cfg)
             self.dibujar_alarmas()
+            self._guardar()
         self.procesar_cola()
 
     def procesar_cola(self):
@@ -740,7 +772,7 @@ class App:
 
     def registrar_video(self, url):
         self.cfg.registrar_video(url)
-        guardar_config(self.cfg)
+        self._guardar()
 
     def actualizar_proxima(self, ahora=None):
         ahora = ahora or datetime.now()
@@ -788,12 +820,22 @@ class App:
             self.lbl_error_video.configure(text="Ese video ya está en la lista.")
             return
         urls.append(url)
-        guardar_urls(urls)
+        if not self._guardar_urls(urls):
+            return
         self.urls = urls
         self.lbl_error_video.configure(text="")
         self.entrada_url.delete(0, "end")
         self.dibujar_videos()
         self.lista_videos.see("end")
+
+    def _guardar_urls(self, urls):
+        try:
+            guardar_urls(urls)
+            return True
+        except OSError as error:
+            self.lbl_error_video.configure(
+                text=f"No se pudo guardar la lista de videos ({error.strerror or error}).")
+            return False
 
     def _video_elegido(self):
         seleccion = self.lista_videos.curselection()
@@ -813,7 +855,8 @@ class App:
         if not url:
             return
         urls = [u for u in cargar_urls(avisar=sin_aviso) if u != url]
-        guardar_urls(urls)
+        if not self._guardar_urls(urls):
+            return
         self.urls = urls
         self.dibujar_videos()
 
@@ -868,7 +911,21 @@ def main():
     activar_dpi()
     raiz = tk.Tk()
     ESCALA = raiz.winfo_fpixels("1i") / 96
-    App(raiz)
+    app = App(raiz)
+
+    def error_inesperado(tipo, valor, rastro):
+        # Con Despertador.pyw no hay consola: sin esto los errores pasarían desapercibidos.
+        registro = CARPETA_DATOS / "errores.log"
+        try:
+            with open(registro, "a", encoding="utf-8") as archivo:
+                archivo.write(f"--- {datetime.now():%Y-%m-%d %H:%M:%S}\n")
+                archivo.write("".join(traceback.format_exception(tipo, valor, rastro)))
+        except OSError:
+            pass
+        app.mostrar_aviso("error", f"⚠ Ocurrió un error inesperado: {valor}. "
+                                   f"El detalle quedó en {registro}.")
+
+    raiz.report_callback_exception = error_inesperado
     raiz.mainloop()
 
 

@@ -9,8 +9,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import despertador  # noqa: E402
-from nucleo import (Alarma, Config, cargar_config, cargar_urls, elegir_video,  # noqa: E402
-                    guardar_config, guardar_urls, texto_cuando, texto_falta)
+from unittest import mock  # noqa: E402
+
+from nucleo import (Alarma, Config, cargar_config, cargar_urls, elegir_carpeta_datos,  # noqa: E402
+                    elegir_video, guardar_config, guardar_urls, texto_cuando, texto_falta)
 
 # 19/10/2026 es lunes
 LUNES_8AM = datetime(2026, 10, 19, 8, 0)
@@ -97,6 +99,21 @@ class TestVideos(unittest.TestCase):
         self.assertEqual(elegir_video(["a"], historial=["a"]), "a")
         for _ in range(50):
             self.assertEqual(elegir_video(["a", "b"], historial=["a"]), "b")
+
+
+class TestCarpetaDatos(unittest.TestCase):
+    def test_carpeta_escribible_se_usa_tal_cual(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            self.assertEqual(elegir_carpeta_datos(carpeta, Path(carpeta) / "otra"), Path(carpeta))
+
+    def test_sin_permiso_usa_respaldo_y_copia_videos(self):
+        with tempfile.TemporaryDirectory() as programa, tempfile.TemporaryDirectory() as base:
+            (Path(programa) / "urls.txt").write_text("https://youtu.be/a\n", encoding="utf-8")
+            respaldo = Path(base) / "DespertadorPato"
+            with mock.patch("nucleo.es_escribible", return_value=False):
+                elegida = elegir_carpeta_datos(programa, respaldo)
+            self.assertEqual(elegida, respaldo)
+            self.assertEqual(cargar_urls(respaldo / "urls.txt"), ["https://youtu.be/a"])
 
 
 class TestTextos(unittest.TestCase):
