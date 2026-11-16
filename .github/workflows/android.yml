@@ -47,7 +47,15 @@ jobs:
         working-directory: movil/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          set -o pipefail
+          if ! ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle.log; then
+            # Publica el error como anotación (se ve sin iniciar sesión en GitHub).
+            resumen=$( { sed -n '/What went wrong/,/Try:/p' gradle.log; grep -E '^(e:|ERROR:|.*error:)' gradle.log; } | head -40 )
+            resumen=${resumen//'%'/'%25'}
+            resumen=${resumen//$'\n'/'%0A'}
+            echo "::error title=Falló Gradle::${resumen}"
+            exit 1
+          fi
 
       - name: Preparar el archivo
         run: cp android/app/build/outputs/apk/debug/app-debug.apk despertador-pato.apk
