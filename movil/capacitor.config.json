@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.axelitocoder.despertadorpato",
+  "appName": "Despertador Pato",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#16171F"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_pato",
+      "iconColor": "#FFC93C",
+      "sound": "alarma.wav"
+    }
+  }
+}

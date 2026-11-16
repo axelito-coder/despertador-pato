@@ -9,6 +9,8 @@ Tiene **interfaz gráfica** y también **versión de terminal**. Solo usa la bib
   <img src="docs/captura-sonando.png" alt="Pantalla de alarma sonando" width="360">
 </p>
 
+> **¿Lo querés en el celular?** Hay una versión móvil en [`movil/`](movil/): una app para Android que suena aunque el celular esté bloqueado ([descargar APK](https://github.com/axelito-coder/despertador-pato/releases/tag/android-latest)) y una app web para iPhone o cualquier navegador.
+
 ## Interfaz gráfica
 
 Hacé **doble clic en `Despertador.pyw`**, o ejecutá:
@@ -68,6 +70,7 @@ Podés editar la lista desde la interfaz o a mano. Ojo: al agregar o quitar vide
 | `despertador.py` | Versión de terminal |
 | `nucleo.py` | Lógica compartida: alarmas, videos, configuración |
 | `tests/` | Tests automáticos (`py -m unittest discover -s tests`) |
+| `movil/` | Versión para celulares: app web y app Android (ver [movil/README.md](movil/README.md)) |
 
 ## Limitaciones conocidas
 

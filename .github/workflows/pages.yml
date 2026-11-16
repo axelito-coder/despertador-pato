@@ -1,0 +1,53 @@
+# Publica la app web (movil/www) en GitHub Pages, para usarla desde iPhone o
+# cualquier navegador. Requiere activar Pages una vez:
+# Settings → Pages → Build and deployment → Source: GitHub Actions.
+name: App web
+
+on:
+  push:
+    branches: [main]
+    paths: ["movil/www/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Revisar que GitHub Pages esté activado
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" --silent 2>/dev/null; then
+            echo "activo=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::GitHub Pages no está activado. Activalo en Settings → Pages → Source: GitHub Actions y volvé a correr este workflow."
+            echo "activo=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.pages.outputs.activo == 'true'
+
+      - uses: actions/configure-pages@v5
+        if: steps.pages.outputs.activo == 'true'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.pages.outputs.activo == 'true'
+        with:
+          path: movil/www
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        if: steps.pages.outputs.activo == 'true'

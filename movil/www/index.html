@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16171F">
+  <meta name="description" content="Despertador que te despierta con un video al azar de YouTube.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pato">
+  <title>Despertador Pato</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="iconos/icono-192.png">
+  <link rel="apple-touch-icon" href="iconos/icono-180.png">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <div id="avisos"></div>
+
+  <header class="cabecera">
+    <div class="marca">DESPERTADOR PATO</div>
+    <div class="reloj"><span id="hora">--:--</span><span id="segundos" class="segundos">--</span></div>
+    <div id="fecha" class="fecha"></div>
+    <div id="proxima" class="pastilla"></div>
+  </header>
+
+  <nav class="pestanas" role="tablist">
+    <button role="tab" data-seccion="alarmas" aria-selected="true">Alarmas</button>
+    <button role="tab" data-seccion="videos" aria-selected="false">Videos</button>
+    <button role="tab" data-seccion="ajustes" aria-selected="false">Ajustes</button>
+  </nav>
+
+  <main>
+    <section id="sec-alarmas" class="seccion">
+      <div id="lista-alarmas"></div>
+    </section>
+
+    <section id="sec-videos" class="seccion" hidden>
+      <h2 id="cant-videos"></h2>
+      <p class="ayuda">Cuando suena una alarma se abre uno al azar. Los últimos que sonaron no se repiten enseguida.</p>
+      <form id="form-video" class="fila-entrada" autocomplete="off">
+        <input id="entrada-video" type="url" inputmode="url" placeholder="Pegá un link de YouTube…" aria-label="Link de YouTube">
+        <button class="boton acento" type="submit">Agregar</button>
+      </form>
+      <p id="error-video" class="error" role="alert"></p>
+      <ul id="lista-videos" class="lista-videos"></ul>
+    </section>
+
+    <section id="sec-ajustes" class="seccion" hidden>
+      <div class="tarjeta">
+        <label class="fila-ajuste" for="posponer">
+          <span><strong>Posponer</strong><small>Cuánto tarda en volver a sonar</small></span>
+          <select id="posponer">
+            <option value="1">1 min</option><option value="3">3 min</option><option value="5">5 min</option>
+            <option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option>
+            <option value="30">30 min</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="ajustes-nativo" class="tarjeta" hidden>
+        <h3>Permisos de Android</h3>
+        <p class="ayuda">Sin estos permisos las alarmas pueden no sonar o llegar tarde.</p>
+        <div class="fila-ajuste">
+          <span><strong>Notificaciones</strong><small id="estado-notif">…</small></span>
+          <button id="btn-permiso-notif" class="boton secundario chico" type="button">Permitir</button>
+        </div>
+        <div class="fila-ajuste">
+          <span><strong>Alarmas exactas</strong><small id="estado-exactas">…</small></span>
+          <button id="btn-permiso-exactas" class="boton secundario chico" type="button">Revisar</button>
+        </div>
+        <p class="ayuda">Consejo: subí el volumen de notificaciones y desactivá el ahorro de batería para esta app.</p>
+      </div>
+
+      <div id="ajustes-web" class="tarjeta" hidden>
+        <h3>Modo mesita de luz</h3>
+        <p class="ayuda">En el navegador (y en iPhone) la alarma solo suena si esta pantalla queda abierta. Dejá el celular cargando y activá este modo antes de dormir: mantiene la pantalla prendida y habilita el sonido.</p>
+        <button id="btn-mesita" class="boton acento ancho" type="button">Activar modo mesita</button>
+      </div>
+
+      <div class="tarjeta">
+        <div class="fila-ajuste">
+          <span><strong>Probar alarma</strong><small id="ayuda-probar">Suena enseguida para ver cómo es</small></span>
+          <button id="btn-probar" class="boton secundario chico" type="button">Probar</button>
+        </div>
+      </div>
+
+      <p class="pie">Despertador Pato · <a href="https://github.com/axelito-coder/despertador-pato" target="_blank" rel="noopener">código en GitHub</a></p>
+    </section>
+  </main>
+
+  <button id="btn-nueva" class="boton acento flotante" type="button">+&nbsp;&nbsp;Nueva alarma</button>
+
+  <dialog id="editor" class="hoja">
+    <form method="dialog" id="form-alarma">
+      <h2 id="titulo-editor">Nueva alarma</h2>
+      <input id="campo-hora" class="campo-hora" type="time" required aria-label="Hora de la alarma">
+      <label class="etiqueta-campo" for="campo-nombre">Nombre (opcional)</label>
+      <input id="campo-nombre" class="campo" type="text" maxlength="40" placeholder="Ej.: Escuela">
+      <span class="etiqueta-campo">Repetir</span>
+      <div id="chips-dias" class="chips"></div>
+      <div class="atajos">
+        <button type="button" data-dias="">Una vez</button>
+        <button type="button" data-dias="0,1,2,3,4">Lun a Vie</button>
+        <button type="button" data-dias="5,6">Fin de semana</button>
+        <button type="button" data-dias="0,1,2,3,4,5,6">Todos</button>
+      </div>
+      <p id="resumen-dias" class="resumen"></p>
+      <div class="botones-hoja">
+        <button id="btn-borrar" class="boton peligro" type="button" hidden>Borrar</button>
+        <span class="espacio"></span>
+        <button class="boton secundario" type="button" id="btn-cancelar">Cancelar</button>
+        <button class="boton acento" type="submit" value="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="sonando" class="sonando" hidden role="alertdialog" aria-labelledby="sonando-titulo">
+    <div class="sonando-cuerpo">
+      <div id="sonando-titulo" class="sonando-titulo">¡ARRIBA!</div>
+      <div id="sonando-hora" class="sonando-hora"></div>
+      <div id="sonando-etiqueta" class="sonando-etiqueta"></div>
+      <p class="sonando-ayuda">Al apagarla se abre un video al azar de tu lista.</p>
+      <div class="sonando-botones">
+        <button id="btn-posponer" class="boton oscuro" type="button">Posponer</button>
+        <button id="btn-apagar" class="boton blanco" type="button">Apagar y ver video</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

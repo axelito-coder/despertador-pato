@@ -1,0 +1,68 @@
+# Compila la app Android (APK) y la publica en Releases como "android-latest".
+name: App Android
+
+on:
+  push:
+    branches: [main]
+    paths: ["movil/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # para publicar el APK en Releases
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: movil
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: movil/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests de la lógica
+        run: npm test
+
+      - name: Copiar la app web al proyecto Android
+        run: npx cap sync android
+
+      - name: Compilar el APK
+        working-directory: movil/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Preparar el archivo
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk despertador-pato.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: despertador-pato-apk
+          path: movil/despertador-pato.apk
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest despertador-pato.apk \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "App Android (última versión)" \
+            --notes "APK compilado automáticamente (versión 1.0.${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA::7}). Descargalo desde el celular y abrilo para instalarlo: Android va a pedir permiso para instalar apps de este origen."

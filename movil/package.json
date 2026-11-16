@@ -1,0 +1,21 @@
+{
+  "name": "despertador-pato-movil",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Despertador Pato para celulares: app web (PWA) y app Android con Capacitor",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.6.10",
+    "@capacitor/app": "7.1.2",
+    "@capacitor/app-launcher": "7.0.4",
+    "@capacitor/core": "7.6.10",
+    "@capacitor/local-notifications": "7.0.7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.10"
+  }
+}

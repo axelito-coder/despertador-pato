@@ -1,0 +1,222 @@
+:root {
+  --fondo: #16171F;
+  --panel: #1E202B;
+  --tarjeta: #262937;
+  --tarjeta-hover: #30344A;
+  --borde: #3A3D52;
+  --texto: #F1F1F5;
+  --suave: #A0A3B8;
+  --tenue: #6B6E86;
+  --acento: #FFC93C;
+  --acento-texto: #1A1A1A;
+  --naranja: #FF9F43;
+  --peligro: #FF6B6B;
+  --oscuro: #1A1A1A;
+  --radio: 14px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0 auto;
+  max-width: 520px;
+  min-height: 100dvh;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: "Segoe UI", Roboto, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  padding: env(safe-area-inset-top) 0 calc(96px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* ---------- avisos */
+.aviso {
+  display: flex; gap: 12px; align-items: center;
+  margin: 12px 16px 0; padding: 12px 14px;
+  background: #3A2E12; color: var(--acento);
+  border-radius: var(--radio); font-size: 14px; font-weight: 600;
+}
+.aviso span { flex: 1; }
+.aviso button {
+  border: 0; border-radius: 10px; padding: 8px 12px;
+  background: var(--acento); color: var(--acento-texto); font-weight: 700; white-space: nowrap;
+}
+
+/* ---------- cabecera */
+.cabecera { padding: 20px 20px 4px; }
+.marca { color: var(--acento); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.reloj { display: flex; align-items: baseline; gap: 6px; font-weight: 700; line-height: 1; margin-top: 6px; }
+#hora { font-size: clamp(56px, 18vw, 76px); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.segundos { font-size: 22px; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.fecha { color: var(--suave); font-size: 16px; margin-top: 6px; }
+.fecha::first-letter { text-transform: uppercase; }
+.pastilla {
+  display: inline-block; margin-top: 14px; padding: 9px 14px;
+  background: var(--panel); border-radius: 12px; font-size: 14px; font-weight: 600;
+}
+.pastilla.vacia { color: var(--suave); }
+
+/* ---------- pestañas */
+.pestanas {
+  display: flex; gap: 22px; margin: 18px 20px 0; border-bottom: 1px solid var(--borde);
+  position: sticky; top: 0; background: var(--fondo); z-index: 2;
+}
+.pestanas button {
+  background: none; border: 0; padding: 10px 0 9px; font-size: 16px; font-weight: 700;
+  color: var(--tenue); border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.pestanas button[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--acento); }
+
+.seccion { padding: 16px 16px 0; }
+
+/* ---------- tarjetas de alarma */
+.alarma {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--tarjeta); border-radius: var(--radio);
+  padding: 14px 16px; margin-bottom: 10px;
+}
+.alarma-info { flex: 1; min-width: 0; background: none; border: 0; padding: 0; text-align: left; }
+.alarma-hora { font-size: 38px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.alarma.apagada .alarma-hora { color: var(--tenue); }
+.alarma-detalle { color: var(--suave); font-size: 14px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarma-cuando { color: var(--acento); font-size: 13px; font-weight: 700; margin-top: 4px; }
+.alarma.apagada .alarma-cuando { color: var(--tenue); font-weight: 400; }
+
+.interruptor { position: relative; width: 52px; height: 30px; flex: none; }
+.interruptor input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.interruptor span {
+  position: absolute; inset: 0; border-radius: 15px; background: var(--borde); transition: background .2s;
+}
+.interruptor span::after {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px;
+  border-radius: 50%; background: #C9CBD8; transition: transform .2s, background .2s;
+}
+.interruptor input:checked + span { background: var(--acento); }
+.interruptor input:checked + span::after { transform: translateX(22px); background: var(--oscuro); }
+.interruptor input:focus-visible + span { outline: 2px solid var(--texto); outline-offset: 2px; }
+
+.vacio { text-align: center; padding: 48px 16px; color: var(--suave); }
+.vacio .sol { font-size: 44px; color: var(--tenue); }
+.vacio strong { display: block; font-size: 18px; margin-top: 8px; }
+
+/* ---------- botones */
+.boton {
+  border: 0; border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 15px;
+  transition: filter .15s, transform .05s;
+}
+.boton:active { transform: scale(.98); }
+.boton.acento { background: var(--acento); color: var(--acento-texto); }
+.boton.secundario { background: var(--tarjeta); color: var(--texto); }
+.boton.peligro { background: var(--tarjeta); color: var(--peligro); }
+.boton.oscuro { background: var(--oscuro); color: var(--acento); }
+.boton.blanco { background: #fff; color: var(--oscuro); }
+.boton.chico { padding: 9px 14px; font-size: 14px; }
+.boton.ancho { width: 100%; }
+@media (hover: hover) { .boton:hover { filter: brightness(1.08); } }
+
+.flotante {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: min(488px, calc(100% - 32px)); padding: 16px; font-size: 17px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45); z-index: 3;
+}
+.flotante:active { transform: translateX(-50%) scale(.98); }
+
+/* ---------- videos */
+h2 { font-size: 19px; margin: 0; }
+h3 { font-size: 16px; margin: 0 0 4px; }
+.ayuda { color: var(--suave); font-size: 14px; line-height: 1.4; margin: 4px 0 14px; }
+.fila-entrada { display: flex; gap: 8px; }
+.fila-entrada input {
+  flex: 1; min-width: 0; background: var(--tarjeta); border: 0; border-radius: 12px;
+  padding: 12px 14px; font-size: 16px;
+}
+.error { color: var(--peligro); font-size: 14px; min-height: 20px; margin: 8px 0; }
+.lista-videos { list-style: none; padding: 0; margin: 0; }
+.video {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--tarjeta); border-radius: var(--radio); padding: 8px; margin-bottom: 8px;
+}
+.video img, .video .sin-miniatura {
+  width: 96px; height: 54px; border-radius: 8px; object-fit: cover; flex: none; background: var(--borde);
+}
+.video-texto { flex: 1; min-width: 0; font-size: 13px; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-texto strong { display: block; color: var(--texto); font-size: 14px; }
+.icono-boton {
+  flex: none; width: 40px; height: 40px; border-radius: 10px; border: 0;
+  background: transparent; color: var(--suave); font-size: 18px;
+}
+.icono-boton.quitar { color: var(--peligro); }
+
+/* ---------- ajustes */
+.tarjeta { background: var(--tarjeta); border-radius: var(--radio); padding: 14px 16px; margin-bottom: 12px; }
+.fila-ajuste { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.fila-ajuste small { display: block; color: var(--suave); font-size: 13px; margin-top: 2px; }
+.fila-ajuste select {
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 10px; padding: 8px 10px; font-size: 15px;
+}
+.pie { text-align: center; color: var(--tenue); font-size: 13px; margin: 20px 0; }
+.pie a { color: var(--suave); }
+
+/* ---------- editor (hoja inferior) */
+.hoja {
+  border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 520px;
+  max-height: 92dvh; background: var(--panel); color: var(--texto);
+  border-radius: 20px 20px 0 0;
+}
+.hoja::backdrop { background: rgba(0, 0, 0, .55); }
+.hoja[open] { animation: subir .22s ease-out; }
+@keyframes subir { from { transform: translateY(40px); opacity: 0; } }
+.hoja form { padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); }
+.campo-hora {
+  display: block; width: 100%; margin: 16px 0 18px; padding: 8px;
+  background: var(--tarjeta); border: 0; border-radius: var(--radio);
+  font-size: clamp(34px, 10vw, 44px); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums;
+}
+.etiqueta-campo { display: block; color: var(--suave); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+.campo { width: 100%; background: var(--tarjeta); border: 0; border-radius: 12px; padding: 12px 14px; font-size: 16px; margin-bottom: 16px; }
+.chips { display: flex; gap: 6px; }
+.chips button {
+  flex: 1; aspect-ratio: 1; max-width: 52px; border: 0; border-radius: 12px;
+  background: var(--tarjeta); color: var(--suave); font-weight: 700; font-size: 16px;
+}
+.chips button[aria-pressed="true"] { background: var(--acento); color: var(--acento-texto); }
+.atajos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.atajos button { background: none; border: 0; color: var(--suave); font-weight: 600; font-size: 14px; padding: 6px 8px; border-radius: 8px; }
+.atajos button:active { background: var(--tarjeta-hover); }
+.resumen { color: var(--acento); font-weight: 700; font-size: 14px; margin: 10px 0 0; }
+.botones-hoja { display: flex; gap: 8px; margin-top: 22px; }
+.espacio { flex: 1; }
+
+/* ---------- pantalla que suena */
+.sonando {
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+  background: var(--acento); color: var(--oscuro);
+  animation: latir 1.4s steps(1, end) infinite;
+  padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+}
+@keyframes latir { 50% { background: var(--naranja); } }
+@media (prefers-reduced-motion: reduce) { .sonando { animation: none; } }
+.sonando-cuerpo { width: 100%; max-width: 420px; text-align: center; }
+.sonando-titulo { font-size: clamp(52px, 16vw, 72px); font-weight: 800; }
+.sonando-hora { font-size: 34px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.sonando-etiqueta { font-size: 19px; margin-top: 8px; }
+.sonando-ayuda { font-size: 15px; color: #4A3B00; margin: 22px 0 28px; }
+.sonando-botones { display: grid; gap: 12px; }
+.sonando-botones .boton { padding: 18px; font-size: 18px; }
+
+/* ---------- toast */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 11;
+  background: var(--texto); color: var(--oscuro); font-weight: 600; font-size: 14px;
+  padding: 10px 16px; border-radius: 12px; max-width: calc(100% - 32px); text-align: center;
+}
+.tarjeta .boton.secundario { background: var(--borde); }

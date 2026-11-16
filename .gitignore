@@ -5,3 +5,10 @@ __pycache__/
 # Tus alarmas e historial (son personales, no van al repo)
 alarmas.json
 alarmas.tmp
+
+# Versión móvil
+movil/node_modules/
+movil/*.apk
+
+# Configuración local de Claude Code
+.claude/
