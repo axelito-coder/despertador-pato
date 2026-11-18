@@ -2,7 +2,6 @@
 
 <p>
   <img src="docs/captura-alarmas.jpg" alt="Lista de alarmas en el celular" width="260">
-  <img src="docs/captura-sonando.jpg" alt="Pantalla de alarma sonando en el celular" width="260">
 </p>
 
 La versión móvil es **una sola app web** (HTML, CSS y JavaScript, sin frameworks) que se usa de dos formas:
@@ -11,8 +10,8 @@ La versión móvil es **una sola app web** (HTML, CSS y JavaScript, sin framewor
 |---|---|---|
 | Cómo se instala | Descargando el APK desde [Releases](https://github.com/axelito-coder/despertador-pato/releases/tag/android-latest) | Abriendo la página y eligiendo "Agregar a pantalla de inicio" |
 | ¿Suena con el celular bloqueado? | **Sí**, aunque la app esté cerrada | **No**: la app tiene que quedar abierta (modo mesita de luz) |
-| Sonido | `alarma.wav`, con el volumen de **alarma** (suena aunque el celular esté en silencio) | Pitidos generados con Web Audio |
-| Al apagarla | Abre un video al azar en la app de YouTube | Abre un video al azar en una pestaña nueva |
+| Qué te despierta | Con el celular bloqueado: la notificación con `alarma.wav`, al volumen de **alarma**. Al tocarla se abre la app y arranca **el video** | **El video**: se reproduce solo, a pantalla completa, con sonido |
+| Si el video no puede arrancar | Suena un pitido y la pantalla "¡ARRIBA!" explica por qué | Igual, o el video arranca sin sonido con el pitido de respaldo hasta que toques **Tocá para escuchar el video** |
 
 ## Instalar en Android
 
@@ -36,9 +35,12 @@ Consejos para que no falle:
 
 Apple no deja que una app web suene con el celular bloqueado: esa es la diferencia con la versión Android.
 
+**Sonido del video en iPhone:** Safari no deja arrancar un video con sonido por su cuenta. Por eso, en iPhone el video arranca sin sonido, suena un pitido para despertarte, y con un toque en **Tocá para escuchar el video** pasa a sonar el video. Además, sacá el iPhone del modo silencio: en ese modo iOS silencia el sonido de las páginas web.
+
 ## Cómo funciona
 
 - [`www/alarmas.js`](www/alarmas.js): la lógica pura (próxima alarma, agenda, videos), equivalente a `nucleo.py` de la versión de PC. No toca la pantalla, así se puede testear con Node.
+- Cuando suena, el video se reproduce en pantalla completa con la [API de YouTube](https://developers.google.com/youtube/iframe_api_reference). Si termina y nadie apagó la alarma, sigue con otro video al azar. Si YouTube no deja reproducir un video (algunos no se pueden ver fuera de YouTube), prueba con otro. Después de 4 fallas, o sin internet, suena el pitido de respaldo.
 - [`www/app.js`](www/app.js): la interfaz y los dos modos. Si corre dentro de la app Android (`Capacitor.isNativePlatform()`), programa las alarmas como notificaciones del sistema. Si no, revisa la hora cada segundo y suena con Web Audio.
 - En Android cada alarma se programa como **3 avisos** (a la hora, +1 y +2 minutos), con 14 días de anticipación. Cada vez que abrís la app se vuelve a armar la agenda. Si no la abrís en 14 días, las alarmas dejan de sonar.
 - Los datos se guardan en el almacenamiento local del celular (`localStorage`).

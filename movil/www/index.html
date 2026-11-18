@@ -115,16 +115,19 @@
     </form>
   </dialog>
 
-  <div id="sonando" class="sonando" hidden role="alertdialog" aria-labelledby="sonando-titulo">
-    <div class="sonando-cuerpo">
-      <div id="sonando-titulo" class="sonando-titulo">¡ARRIBA!</div>
-      <div id="sonando-hora" class="sonando-hora"></div>
-      <div id="sonando-etiqueta" class="sonando-etiqueta"></div>
-      <p class="sonando-ayuda">Al apagarla se abre un video al azar de tu lista.</p>
-      <div class="sonando-botones">
-        <button id="btn-posponer" class="boton oscuro" type="button">Posponer</button>
-        <button id="btn-apagar" class="boton blanco" type="button">Apagar y ver video</button>
+  <div id="sonando" class="sonando" hidden role="alertdialog" aria-label="Alarma sonando">
+    <div class="zona-video">
+      <div id="marco-video" class="marco-video"></div>
+      <button id="btn-activar-sonido" class="activar-sonido" type="button" hidden>🔊 Tocá para escuchar el video</button>
+      <div id="sonando-respaldo" class="sonando-respaldo" hidden>
+        <div class="sonando-titulo">¡ARRIBA!</div>
+        <p id="sonando-motivo" class="sonando-motivo"></p>
       </div>
+    </div>
+    <div class="barra-sonando">
+      <span id="sonando-info"></span>
+      <button id="btn-posponer" class="boton secundario chico" type="button">Posponer</button>
+      <button id="btn-apagar" class="boton acento chico" type="button">Apagar</button>
     </div>
   </div>
 

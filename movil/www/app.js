@@ -93,7 +93,7 @@ function aNotificacion(v) {
   return {
     id: v.id,
     title: v.intento ? '¡Arriba! Sigue sonando' : '¡Arriba!',
-    body: `${v.etiqueta || 'Alarma'} · ${horaDe(v.cuando)}. Tocá para apagarla o posponerla.`,
+    body: `${v.etiqueta || 'Alarma'} · ${horaDe(v.cuando)}. Tocá para despertarte con tu video.`,
     // Sin channelId: se usa el canal "default" del plugin, que toma el sonido de
     // capacitor.config.json y lo reproduce con el volumen de ALARMA (suena aunque
     // el celular esté en silencio). Un canal propio usaría el de notificaciones.
@@ -117,6 +117,11 @@ async function atender(clave) {
     alarma.vence = null;
   }
   guardar();
+  await silenciarAvisos(clave);
+}
+
+/** Saca los avisos pendientes y visibles de una vez que sonó (solo Android). */
+async function silenciarAvisos(clave) {
   if (!NATIVO) return;
   const ids = Array.from({ length: REPETICIONES }, (_, i) => ({ id: idNotificacion(clave, i) }));
   await Notis.cancel({ notifications: ids }).catch(() => {});
@@ -190,46 +195,171 @@ document.addEventListener('visibilitychange', () => {
 
 // ------------------------------------------------------------ cuando suena
 
+// El despertador es el video: a la hora se reproduce en pantalla completa un
+// video al azar de la lista. Si el navegador no deja que arranque con sonido
+// (iPhone, o una página que nadie tocó), arranca sin sonido, suena el pitido de
+// respaldo y un toque en "Tocá para escuchar" activa el sonido del video.
+
+let reproductor = null;    // YT.Player
+let videoActual = null;
+let vigilancia = null;
+let promesaYouTube = null;
+
+/** Carga la API de YouTube (una sola vez, recién cuando hace falta). */
+function cargarYouTube() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  promesaYouTube ??= new Promise((resolver, rechazar) => {
+    const anterior = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { anterior?.(); resolver(window.YT); };
+    const script = document.createElement('script');
+    script.src = 'https://www.youtube.com/iframe_api';
+    script.onerror = () => rechazar(new Error('sin conexión'));
+    document.head.append(script);
+    setTimeout(() => rechazar(new Error('YouTube no respondió')), 12000);
+  }).catch((error) => {
+    promesaYouTube = null;
+    throw error;
+  });
+  return promesaYouTube;
+}
+
 function mostrarSonando(vez) {
   if (sonandoActual) return;
-  sonandoActual = { clave: vez.clave, alarmaId: vez.alarmaId, etiqueta: vez.etiqueta };
-  $('#sonando-hora').textContent = horaDe(new Date());
-  $('#sonando-etiqueta').textContent = vez.etiqueta || 'Hora de despertarse';
+  sonandoActual = { clave: vez.clave, alarmaId: vez.alarmaId, etiqueta: vez.etiqueta, fallidos: 0 };
+  $('#sonando-info').textContent = `${horaDe(new Date())} · ${vez.etiqueta || 'Hora de despertarse'}`;
   $('#btn-posponer').textContent = `Posponer ${estado.posponerMin} min`;
+  $('#sonando-respaldo').hidden = true;
+  $('#btn-activar-sonido').hidden = true;
   $('#sonando').hidden = false;
-  if (!NATIVO) {
-    sonido.iniciar();
-    navigator.vibrate?.([700, 300, 700, 300, 700]);
+  navigator.vibrate?.([700, 300, 700, 300, 700]);
+  if (NATIVO) silenciarAvisos(vez.clave);   // ya suena en pantalla: no hacen falta más notificaciones
+  reproducirVideo();
+}
+
+async function reproducirVideo(anterior = null) {
+  const actual = sonandoActual;
+  if (!actual) return;
+  const conId = estado.videos.filter((u) => idVideo(u));
+  const otros = conId.filter((u) => u !== anterior);
+  const url = elegirVideo(otros.length ? otros : conId, estado.historial);
+  if (!url) {
+    sonarRespaldo('Tu lista de videos está vacía: agregá alguno en la pestaña Videos.');
+    return;
   }
+  try {
+    await cargarYouTube();
+  } catch {
+    sonarRespaldo('Sin conexión: no se pudo cargar YouTube.');
+    return;
+  }
+  if (sonandoActual !== actual) return;   // la apagaron mientras cargaba
+
+  videoActual = url;
+  estado.historial = [...estado.historial, url].slice(-20);
+  guardar();
+  if (reproductor) {
+    reproductor.loadVideoById(idVideo(url));
+    vigilarArranque();
+    return;
+  }
+  const lugar = el('div');
+  $('#marco-video').replaceChildren(lugar);
+  reproductor = new window.YT.Player(lugar, {
+    videoId: idVideo(url),
+    width: '100%',
+    height: '100%',
+    playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+    events: {
+      onReady: (e) => {
+        e.target.unMute();
+        e.target.setVolume(100);
+        e.target.playVideo();
+        vigilarArranque();
+      },
+      onStateChange: alCambiarEstado,
+      onError: videoFallido,
+      onAutoplayBlocked: sinSonido,
+    },
+  });
+}
+
+function alCambiarEstado(evento) {
+  const { PLAYING, ENDED } = window.YT.PlayerState;
+  if (evento.data === PLAYING) {
+    clearTimeout(vigilancia);
+    if (evento.target.isMuted()) sinSonido();
+    else conSonido();
+  } else if (evento.data === ENDED) {
+    reproducirVideo(videoActual);   // terminó y nadie la apagó: sigue con otro
+  }
+}
+
+/** Si a los pocos segundos el video no arrancó, el navegador bloqueó el sonido. */
+function vigilarArranque() {
+  clearTimeout(vigilancia);
+  vigilancia = setTimeout(() => {
+    if (!sonandoActual || !reproductor?.getPlayerState) return;
+    const estadoVideo = reproductor.getPlayerState();
+    if (estadoVideo === window.YT.PlayerState.BUFFERING) vigilarArranque();   // internet lento: esperar más
+    else if (estadoVideo !== window.YT.PlayerState.PLAYING) sinSonido();
+  }, 4000);
+}
+
+function sinSonido() {
+  if (!sonandoActual || !reproductor) return;
+  reproductor.mute();
+  reproductor.playVideo();
+  sonido.iniciar();   // el pitido despierta hasta que actives el sonido del video
+  $('#btn-activar-sonido').hidden = false;
+}
+
+function conSonido() {
+  sonido.detener();
+  $('#btn-activar-sonido').hidden = true;
+}
+
+function activarSonidoVideo() {
+  if (!reproductor) return;
+  reproductor.unMute();
+  reproductor.setVolume(100);
+  reproductor.playVideo();
+  conSonido();
+}
+
+function videoFallido() {
+  // Algunos videos no permiten verse fuera de YouTube: se prueba con otro.
+  if (!sonandoActual) return;
+  sonandoActual.fallidos += 1;
+  if (sonandoActual.fallidos >= 4) sonarRespaldo('YouTube no dejó reproducir los videos de tu lista.');
+  else reproducirVideo(videoActual);
+}
+
+function sonarRespaldo(motivo) {
+  if (!sonandoActual) return;
+  clearTimeout(vigilancia);
+  $('#sonando-motivo').textContent = motivo;
+  $('#sonando-respaldo').hidden = false;
+  $('#btn-activar-sonido').hidden = true;
+  sonido.iniciar();
 }
 
 function ocultarSonando() {
   $('#sonando').hidden = true;
   sonandoActual = null;
+  videoActual = null;
+  clearTimeout(vigilancia);
   sonido.detener();
   navigator.vibrate?.(0);
-}
-
-function abrirVideo() {
-  const url = elegirVideo(estado.videos, estado.historial);
-  if (!url) {
-    toast('Tu lista de videos está vacía: agregá alguno en la pestaña Videos');
-    return;
+  if (reproductor) {
+    try { reproductor.destroy(); } catch { /* ya no existe */ }
+    reproductor = null;
   }
-  estado.historial = [...estado.historial, url].slice(-20);
-  guardar();
-  if (NATIVO) {
-    // Abre la app de YouTube si está instalada; si no, el navegador.
-    Lanzador.openUrl({ url }).catch(() => window.open(url, '_blank'));
-  } else if (!window.open(url, '_blank', 'noopener')) {
-    location.href = url;
-  }
+  $('#marco-video').replaceChildren();
 }
 
 async function apagar() {
   const actual = sonandoActual;
   ocultarSonando();
-  abrirVideo();   // primero, mientras dura el toque del usuario (Safari bloquea window.open si se espera)
   if (actual) await atender(actual.clave);
   cambiar();
 }
@@ -594,7 +724,7 @@ function alVolver() {
 
 async function iniciarNativo() {
   await Notis.registerActionTypes({
-    types: [{ id: 'ALARMA', actions: [{ id: 'posponer', title: 'Posponer' }, { id: 'apagar', title: 'Apagar y ver video' }] }],
+    types: [{ id: 'ALARMA', actions: [{ id: 'posponer', title: 'Posponer' }, { id: 'apagar', title: 'Apagar' }] }],
   });
   await Notis.addListener('localNotificationActionPerformed', ({ actionId, notification }) => {
     const extra = notification?.extra || {};
@@ -603,11 +733,14 @@ async function iniciarNativo() {
       atender(extra.clave);   // aviso viejo: solo se limpia
       return;
     }
+    const vez = { clave: extra.clave, alarmaId: extra.alarmaId, etiqueta: extra.etiqueta };
     ocultarSonando();
-    mostrarSonando({ clave: extra.clave, alarmaId: extra.alarmaId, etiqueta: extra.etiqueta });
-    if (actionId === 'posponer') posponer();
-    else if (actionId === 'apagar') apagar();
-    // 'tap' (tocar la notificación): queda la pantalla de alarma para elegir.
+    if (actionId === 'posponer' || actionId === 'apagar') {
+      sonandoActual = { ...vez, fallidos: 0 };
+      if (actionId === 'posponer') posponer(); else apagar();
+    } else {
+      mostrarSonando(vez);   // tocar la notificación: abre la app y arranca el video
+    }
   });
   await AppNativa.addListener('resume', alVolver);
   await AppNativa.addListener('backButton', () => {
@@ -648,6 +781,7 @@ function iniciar() {
   $('#form-video').addEventListener('submit', agregarVideo);
   $('#btn-apagar').addEventListener('click', apagar);
   $('#btn-posponer').addEventListener('click', posponer);
+  $('#btn-activar-sonido').addEventListener('click', activarSonidoVideo);
   $('#btn-probar').addEventListener('click', probarAlarma);
   $('#btn-mesita').addEventListener('click', activarMesita);
   $('#btn-permiso-notif').addEventListener('click', pedirNotificaciones);

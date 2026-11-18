@@ -195,22 +195,35 @@ h3 { font-size: 16px; margin: 0 0 4px; }
 .botones-hoja { display: flex; gap: 8px; margin-top: 22px; }
 .espacio { flex: 1; }
 
-/* ---------- pantalla que suena */
+/* ---------- pantalla que suena: el video de YouTube a pantalla completa */
 .sonando {
-  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
-  background: var(--acento); color: var(--oscuro);
+  position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+  background: #000; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.zona-video { position: relative; flex: 1; }
+.marco-video, .marco-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.activar-sonido {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;
+  border: 0; border-radius: 16px; padding: 18px 24px; font-size: 18px; font-weight: 800;
+  background: var(--acento); color: var(--acento-texto); box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  animation: llamar 1.2s ease-in-out infinite;
+}
+@keyframes llamar { 50% { transform: translate(-50%, -50%) scale(1.06); } }
+.sonando-respaldo {
+  position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: 8px;
+  padding: 24px; text-align: center; background: var(--acento); color: var(--oscuro);
   animation: latir 1.4s steps(1, end) infinite;
-  padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
 }
 @keyframes latir { 50% { background: var(--naranja); } }
-@media (prefers-reduced-motion: reduce) { .sonando { animation: none; } }
-.sonando-cuerpo { width: 100%; max-width: 420px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .sonando-respaldo, .activar-sonido { animation: none; } }
 .sonando-titulo { font-size: clamp(52px, 16vw, 72px); font-weight: 800; }
-.sonando-hora { font-size: 34px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.sonando-etiqueta { font-size: 19px; margin-top: 8px; }
-.sonando-ayuda { font-size: 15px; color: #4A3B00; margin: 22px 0 28px; }
-.sonando-botones { display: grid; gap: 12px; }
-.sonando-botones .boton { padding: 18px; font-size: 18px; }
+.sonando-motivo { font-size: 17px; margin: 0; }
+.barra-sonando {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--fondo);
+}
+.barra-sonando span {
+  flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ---------- toast */
 .toast {
