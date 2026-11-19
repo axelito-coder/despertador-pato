@@ -201,6 +201,9 @@ h3 { font-size: 16px; margin: 0 0 4px; }
   background: #000; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
 }
 .zona-video { position: relative; flex: 1; }
+/* En "Preparar para dormir" solo queda Cancelar. */
+.sonando.preparando #btn-posponer { display: none; }
+.sonando.preparando .barra-sonando span { white-space: normal; }
 .marco-video, .marco-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .activar-sonido {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;

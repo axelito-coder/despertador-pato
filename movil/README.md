@@ -9,9 +9,9 @@ La versión móvil es **una sola app web** (HTML, CSS y JavaScript, sin framewor
 | | Android (app instalable) | iPhone o cualquier navegador (app web) |
 |---|---|---|
 | Cómo se instala | Descargando el APK desde [Releases](https://github.com/axelito-coder/despertador-pato/releases/tag/android-latest) | Abriendo la página y eligiendo "Agregar a pantalla de inicio" |
-| ¿Suena con el celular bloqueado? | **Sí**, aunque la app esté cerrada | **No**: la app tiene que quedar abierta (modo mesita de luz) |
+| ¿Suena con el celular bloqueado? | **Sí**, aunque la app esté cerrada | **No**: la app tiene que quedar abierta toda la noche ("Preparar para dormir") |
 | Qué te despierta | **El video**: a la hora, la app se abre sola encima de la pantalla de bloqueo y lo reproduce con sonido, como el despertador de Android | **El video**: se reproduce solo, a pantalla completa, con sonido |
-| Si el video no puede arrancar | Suena un pitido y la pantalla "¡ARRIBA!" explica por qué | Igual, o el video arranca sin sonido con el pitido de respaldo hasta que toques **Tocá para escuchar el video** |
+| Si el video no puede arrancar | Suena un pitido y la pantalla "¡ARRIBA!" explica por qué | Igual. Si no se preparó antes de dormir, el video arranca sin sonido con un pitido hasta que toques **Tocá para escuchar el video** |
 
 ## Instalar en Android
 
@@ -32,11 +32,12 @@ Consejos para que no falle:
 
 1. Abrí la app web en Safari (la dirección aparece cuando se active GitHub Pages; ver abajo).
 2. Tocá *Compartir → Agregar a pantalla de inicio*.
-3. Antes de dormir, abrila, tocá **Modo mesita** y dejá el celular cargando con la app abierta.
+3. **Antes de dormir**, abrila y tocá **Preparar** (o *Ajustes → Preparar para dormir*). Aparece un video: dale ▶ una vez. La app lo pausa y queda **"Listo para dormir ✓"**.
+4. Dejá el celular cargando con la app abierta. A la hora de la alarma, el video suena solo, con sonido.
 
 Apple no deja que una app web suene con el celular bloqueado: esa es la diferencia con la versión Android.
 
-**Sonido del video en iPhone:** Safari no deja arrancar un video con sonido por su cuenta. Por eso, en iPhone el video arranca sin sonido, suena un pitido para despertarte, y con un toque en **Tocá para escuchar el video** pasa a sonar el video. Además, sacá el iPhone del modo silencio: en ese modo iOS silencia el sonido de las páginas web.
+**Por qué hay que "Preparar para dormir":** Safari no deja que un video arranque con sonido si nunca le diste play. Pero si le diste play una vez a un reproductor, después ese mismo reproductor puede sonar solo. Por eso el ▶ de antes de dormir es lo que permite que, a la hora de la alarma, el video suene sin tocar nada. Si cerrás o recargás la página, hay que volver a prepararla. Además, sacá el iPhone del modo silencio: en ese modo iOS silencia el sonido de las páginas web.
 
 ## Cómo funciona
 

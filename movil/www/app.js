@@ -185,18 +185,78 @@ const sonido = (() => {
   };
 })();
 
+// ------------------------------------------------------------ preparar para dormir (navegador)
+// En el navegador, y sobre todo en iPhone, un video no puede arrancar con sonido
+// si nadie le dio play. Pero si a un reproductor se le dio play una vez, después
+// ese mismo reproductor puede sonar solo. Por eso, antes de dormir, "Preparar
+// para dormir" muestra el video, se le da ▶ una vez y queda pausado y listo: a
+// la hora de la alarma se usa ese mismo reproductor y el video suena solo.
+
 let bloqueoPantalla = null;
 let mesitaPedida = false;
+let preparando = false;
+let sonidoListo = false;   // ya se le dio play al reproductor: la alarma puede sonar sola
+let pantallaSinPermiso = false;   // el navegador no deja mantenerla prendida (se avisó qué hacer)
 
-async function activarMesita() {
-  sonido.probar();
+async function mantenerPantallaPrendida() {
   mesitaPedida = true;
+  if (bloqueoPantalla) return true;
   try {
     bloqueoPantalla = await navigator.wakeLock.request('screen');
     bloqueoPantalla.addEventListener('release', () => { bloqueoPantalla = null; actualizarAjustes(); avisoModoWeb(); });
-    toast('Modo mesita activado: dejá esta pantalla abierta');
+    return true;
   } catch {
-    toast('Este navegador no deja mantener la pantalla prendida: desactivá el bloqueo automático');
+    pantallaSinPermiso = true;
+    return false;
+  }
+}
+
+async function prepararParaDormir() {
+  sonido.desbloquear();
+  if (!(await mantenerPantallaPrendida())) {
+    toast('Este navegador no deja mantener la pantalla prendida: desactivá el bloqueo automático esta noche');
+  }
+  if (sonidoListo) {
+    toast('Ya está todo listo: dejá esta pantalla abierta');
+    actualizarAjustes();
+    avisoModoWeb();
+    return;
+  }
+  const url = estado.videos.find((u) => idVideo(u));
+  if (!url) {
+    toast('Primero agregá un video en la pestaña Videos');
+    return;
+  }
+  try {
+    await cargarYouTube();
+  } catch {
+    toast('Sin conexión: no se pudo cargar YouTube');
+    return;
+  }
+  preparando = true;
+  $('#sonando').classList.add('preparando');
+  $('#sonando-info').textContent = 'Tocá ▶ en el video para activar el sonido de la alarma';
+  $('#btn-apagar').textContent = 'Cancelar';
+  $('#sonando-respaldo').hidden = true;
+  $('#btn-activar-sonido').hidden = true;
+  $('#sonando').hidden = false;
+  if (reproductor) {
+    reproductor.unMute();
+    reproductor.cueVideoById(idVideo(url));
+  } else {
+    crearReproductor(idVideo(url), false);
+  }
+}
+
+function terminarPreparacion(listo) {
+  preparando = false;
+  reproductor?.pauseVideo?.();
+  $('#sonando').classList.remove('preparando');
+  $('#sonando').hidden = true;
+  $('#btn-apagar').textContent = 'Apagar';
+  if (listo) {
+    sonidoListo = true;
+    toast('¡Listo! La alarma va a sonar con el video. Dejá esta pantalla abierta.');
   }
   actualizarAjustes();
   avisoModoWeb();
@@ -205,18 +265,18 @@ async function activarMesita() {
 document.addEventListener('visibilitychange', () => {
   // En Android se usa el evento 'resume' de Capacitor (ver iniciarNativo).
   if (NATIVO || document.visibilityState !== 'visible') return;
-  if (mesitaPedida && !bloqueoPantalla) activarMesita();
+  if (mesitaPedida && !bloqueoPantalla) mantenerPantallaPrendida();
   alVolver();
 });
 
 // ------------------------------------------------------------ cuando suena
 
 // El despertador es el video: a la hora se reproduce en pantalla completa un
-// video al azar de la lista. Si el navegador no deja que arranque con sonido
-// (iPhone, o una página que nadie tocó), arranca sin sonido, suena el pitido de
-// respaldo y un toque en "Tocá para escuchar" activa el sonido del video.
+// video al azar de la lista, con sonido. Solo si el navegador lo bloquea (por
+// ejemplo, en iPhone sin "Preparar para dormir") arranca sin sonido, suena el
+// pitido de respaldo y aparece "Tocá para escuchar el video".
 
-let reproductor = null;    // YT.Player
+let reproductor = null;    // YT.Player: se crea una vez y se reutiliza
 let videoActual = null;
 let vigilancia = null;
 let promesaYouTube = null;
@@ -239,8 +299,34 @@ function cargarYouTube() {
   return promesaYouTube;
 }
 
+/** El reproductor vive siempre en #marco-video: no se destruye ni se mueve,
+ *  porque eso le haría perder el permiso de sonar que le dio el play. */
+function crearReproductor(id, reproducir) {
+  const lugar = el('div');
+  $('#marco-video').replaceChildren(lugar);
+  reproductor = new window.YT.Player(lugar, {
+    videoId: id,
+    width: '100%',
+    height: '100%',
+    playerVars: { autoplay: reproducir ? 1 : 0, playsinline: 1, rel: 0 },
+    events: {
+      onReady: (e) => {
+        if (!reproducir) return;
+        e.target.unMute();
+        e.target.setVolume(100);
+        e.target.playVideo();
+        vigilarArranque();
+      },
+      onStateChange: alCambiarEstado,
+      onError: videoFallido,
+      onAutoplayBlocked: sinSonido,
+    },
+  });
+}
+
 function mostrarSonando(vez) {
   if (sonandoActual) return;
+  if (preparando) terminarPreparacion(false);
   sonandoActual = { clave: vez.clave, alarmaId: vez.alarmaId, etiqueta: vez.etiqueta, fallidos: 0 };
   $('#sonando-info').textContent = `${horaDe(new Date())} · ${vez.etiqueta || 'Hora de despertarse'}`;
   $('#btn-posponer').textContent = `Posponer ${estado.posponerMin} min`;
@@ -274,33 +360,27 @@ async function reproducirVideo(anterior = null) {
   estado.historial = [...estado.historial, url].slice(-20);
   guardar();
   if (reproductor) {
-    reproductor.loadVideoById(idVideo(url));
+    reproductor.unMute();
+    reproductor.setVolume(100);
+    reproductor.loadVideoById(idVideo(url));   // carga y arranca en el mismo reproductor
     vigilarArranque();
-    return;
+  } else {
+    crearReproductor(idVideo(url), true);
   }
-  const lugar = el('div');
-  $('#marco-video').replaceChildren(lugar);
-  reproductor = new window.YT.Player(lugar, {
-    videoId: idVideo(url),
-    width: '100%',
-    height: '100%',
-    playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
-    events: {
-      onReady: (e) => {
-        e.target.unMute();
-        e.target.setVolume(100);
-        e.target.playVideo();
-        vigilarArranque();
-      },
-      onStateChange: alCambiarEstado,
-      onError: videoFallido,
-      onAutoplayBlocked: sinSonido,
-    },
-  });
 }
 
 function alCambiarEstado(evento) {
   const { PLAYING, ENDED } = window.YT.PlayerState;
+  if (preparando) {
+    // Le dieron play durante "Preparar para dormir": el reproductor ya puede sonar solo.
+    if (evento.data === PLAYING) {
+      evento.target.unMute();
+      evento.target.setVolume(100);
+      setTimeout(() => terminarPreparacion(true), 400);
+    }
+    return;
+  }
+  if (!sonandoActual) return;
   if (evento.data === PLAYING) {
     clearTimeout(vigilancia);
     if (evento.target.isMuted()) sinSonido();
@@ -327,6 +407,10 @@ function sinSonido() {
   reproductor.playVideo();
   sonido.iniciar();   // el pitido despierta hasta que actives el sonido del video
   $('#btn-activar-sonido').hidden = false;
+  if (!NATIVO && sonidoListo) {
+    sonidoListo = false;   // el navegador lo bloqueó igual: hay que volver a preparar
+    avisoModoWeb();
+  }
 }
 
 function conSonido() {
@@ -344,6 +428,12 @@ function activarSonidoVideo() {
 
 function videoFallido() {
   // Algunos videos no permiten verse fuera de YouTube: se prueba con otro.
+  if (preparando) {
+    const otro = estado.videos.filter((u) => idVideo(u) && u !== videoActual);
+    videoActual = otro[Math.floor(Math.random() * otro.length)] ?? null;
+    if (videoActual) reproductor.cueVideoById(idVideo(videoActual));
+    return;
+  }
   if (!sonandoActual) return;
   sonandoActual.fallidos += 1;
   if (sonandoActual.fallidos >= 4) sonarRespaldo('YouTube no dejó reproducir los videos de tu lista.');
@@ -366,15 +456,15 @@ function ocultarSonando() {
   clearTimeout(vigilancia);
   sonido.detener();
   navigator.vibrate?.(0);
-  if (reproductor) {
-    try { reproductor.destroy(); } catch { /* ya no existe */ }
-    reproductor = null;
-  }
-  $('#marco-video').replaceChildren();
+  reproductor?.stopVideo?.();   // se frena, pero el reproductor queda listo para la próxima
   AlarmaNativa?.terminar().catch(() => {});   // deja de mostrarse encima del bloqueo
 }
 
 async function apagar() {
+  if (preparando) {
+    terminarPreparacion(false);   // en "Preparar para dormir" el botón es Cancelar
+    return;
+  }
   const actual = sonandoActual;
   ocultarSonando();
   if (actual) await atender(actual.clave);
@@ -625,11 +715,16 @@ function quitarAviso(clave) {
   document.querySelector(`[data-aviso="${clave}"]`)?.remove();
 }
 
+function listoParaDormir() {
+  return sonidoListo && Boolean(bloqueoPantalla || pantallaSinPermiso);
+}
+
 function avisoModoWeb() {
   if (NATIVO) return;
   const hayActivas = estado.alarmas.some((a) => a.activa) || estado.pospuestas.length;
-  if (hayActivas && !bloqueoPantalla) {
-    mostrarAviso('web', 'En el navegador la alarma solo suena con esta pantalla abierta.', 'Modo mesita', activarMesita);
+  if (hayActivas && !listoParaDormir()) {
+    mostrarAviso('web', 'Antes de dormir tocá «Preparar» y dejá esta pantalla abierta: así la alarma suena con el video.',
+      'Preparar', prepararParaDormir);
   } else {
     quitarAviso('web');
   }
@@ -638,8 +733,9 @@ function avisoModoWeb() {
 function actualizarAjustes() {
   $('#posponer').value = String(estado.posponerMin);
   if (!NATIVO) {
-    $('#btn-mesita').textContent = bloqueoPantalla ? 'Modo mesita activado ✓' : 'Activar modo mesita';
-    $('#btn-mesita').disabled = Boolean(bloqueoPantalla);
+    const listo = listoParaDormir();
+    $('#btn-mesita').textContent = listo ? 'Listo para dormir ✓' : 'Preparar para dormir';
+    $('#btn-mesita').disabled = Boolean(listo);
   }
 }
 
@@ -830,7 +926,7 @@ function iniciar() {
   $('#btn-posponer').addEventListener('click', posponer);
   $('#btn-activar-sonido').addEventListener('click', activarSonidoVideo);
   $('#btn-probar').addEventListener('click', probarAlarma);
-  $('#btn-mesita').addEventListener('click', activarMesita);
+  $('#btn-mesita').addEventListener('click', prepararParaDormir);
   $('#btn-permiso-notif').addEventListener('click', pedirNotificaciones);
   $('#btn-permiso-exactas').addEventListener('click', pedirExactas);
   $('#btn-permiso-pantalla').addEventListener('click', pedirPantallaCompleta);
