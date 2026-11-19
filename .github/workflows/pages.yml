@@ -51,3 +51,14 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
         if: steps.pages.outputs.activo == 'true'
+        continue-on-error: true
+
+      # A veces GitHub tarda en "ver" el paquete recién subido y el deploy falla con
+      # "No artifacts named github-pages were found": se espera y se reintenta.
+      - name: Esperar antes de reintentar
+        if: steps.pages.outputs.activo == 'true' && steps.deploy.outcome == 'failure'
+        run: sleep 45
+
+      - id: reintento
+        uses: actions/deploy-pages@v4
+        if: steps.pages.outputs.activo == 'true' && steps.deploy.outcome == 'failure'
