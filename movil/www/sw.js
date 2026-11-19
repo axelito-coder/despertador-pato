@@ -1,6 +1,6 @@
 // Service worker de la app web: guarda los archivos para que abra sin internet.
 // Al cambiar cualquier archivo de la app, subí la versión para que se actualice.
-const VERSION = 'pato-v2';
+const VERSION = 'pato-v3';
 const ARCHIVOS = [
   './', 'index.html', 'estilos.css', 'app.js', 'alarmas.js', 'manifest.webmanifest',
   'iconos/icono-180.png', 'iconos/icono-192.png', 'iconos/icono-512.png',

@@ -19,6 +19,9 @@ const NATIVO = Boolean(Cap?.isNativePlatform?.());
 const Notis = NATIVO ? Cap.Plugins.LocalNotifications : null;
 const Lanzador = NATIVO ? Cap.Plugins.AppLauncher : null;
 const AppNativa = NATIVO ? Cap.Plugins.App : null;
+// Plugin propio (android/.../AlarmaPlugin.java): alarmas de pantalla completa que
+// abren la app encima del bloqueo para que el video arranque solo.
+const AlarmaNativa = NATIVO ? (Cap.Plugins.AlarmaNativa ?? Cap.registerPlugin?.('AlarmaNativa')) : null;
 
 const $ = (selector) => document.querySelector(selector);
 const dos = (n) => String(n).padStart(2, '0');
@@ -85,7 +88,19 @@ async function programarNotificaciones() {
   const { notifications: pendientes } = await Notis.getPending();
   if (pendientes.length) await Notis.cancel({ notifications: pendientes.map((n) => ({ id: n.id })) });
   const avisos = planificar(estado, new Date(), { repeticiones: REPETICIONES });
-  if (avisos.length) await Notis.schedule({ notifications: avisos.map(aNotificacion) });
+  // El primer aviso de cada alarma es de pantalla completa (abre la app y el video);
+  // los de +1 y +2 minutos son notificaciones comunes, por si no se pudo abrir.
+  const principales = AlarmaNativa ? avisos.filter((v) => v.intento === 0) : [];
+  const respaldo = AlarmaNativa ? avisos.filter((v) => v.intento > 0) : avisos;
+  if (AlarmaNativa) {
+    await AlarmaNativa.programar({
+      alarmas: principales.map((v) => ({
+        id: v.id, en: v.en.getTime(), clave: v.clave, alarmaId: v.alarmaId,
+        etiqueta: v.etiqueta || 'Alarma', hora: horaDe(v.cuando),
+      })),
+    });
+  }
+  if (respaldo.length) await Notis.schedule({ notifications: respaldo.map(aNotificacion) });
   quitarAviso('programar');
 }
 
@@ -126,6 +141,7 @@ async function silenciarAvisos(clave) {
   const ids = Array.from({ length: REPETICIONES }, (_, i) => ({ id: idNotificacion(clave, i) }));
   await Notis.cancel({ notifications: ids }).catch(() => {});
   await Notis.removeDeliveredNotifications({ notifications: ids }).catch(() => {});
+  await AlarmaNativa?.silenciar({ id: idNotificacion(clave, 0) }).catch(() => {});
 }
 
 // ------------------------------------------------------------ sonido (navegador)
@@ -355,6 +371,7 @@ function ocultarSonando() {
     reproductor = null;
   }
   $('#marco-video').replaceChildren();
+  AlarmaNativa?.terminar().catch(() => {});   // deja de mostrarse encima del bloqueo
 }
 
 async function apagar() {
@@ -650,6 +667,21 @@ async function actualizarPermisos() {
   } else {
     quitarAviso('exactas');
   }
+
+  let pantallaCompleta = true;
+  try {
+    pantallaCompleta = (await AlarmaNativa?.estado())?.pantallaCompleta ?? true;
+  } catch { /* plugin no disponible */ }
+  $('#estado-pantalla').textContent = pantallaCompleta
+    ? 'Permitida ✓'
+    : 'Sin permiso: el video no va a arrancar solo con el celular bloqueado';
+  $('#btn-permiso-pantalla').hidden = pantallaCompleta;
+  if (!pantallaCompleta) {
+    mostrarAviso('pantalla', 'Para que el video arranque con el celular bloqueado, permití la alarma de pantalla completa.',
+      'Permitir', pedirPantallaCompleta);
+  } else {
+    quitarAviso('pantalla');
+  }
 }
 
 async function pedirNotificaciones() {
@@ -659,6 +691,11 @@ async function pedirNotificaciones() {
   }
   await actualizarPermisos();
   reprogramar();
+}
+
+async function pedirPantallaCompleta() {
+  await AlarmaNativa?.abrirAjustePantallaCompleta().catch(() => {});
+  // Al volver de Ajustes, 'resume' vuelve a revisar los permisos.
 }
 
 async function pedirExactas() {
@@ -742,6 +779,16 @@ async function iniciarNativo() {
       mostrarSonando(vez);   // tocar la notificación: abre la app y arranca el video
     }
   });
+  if (AlarmaNativa) {
+    // La alarma de pantalla completa abrió la app (o la trajo al frente): arranca el video.
+    await AlarmaNativa.addListener('alarma', (datos) => {
+      if (!datos?.clave || estado.atendidas.includes(datos.clave)) return;
+      // Si ya hay un video sonando, sigue ese. No se llama a ocultarSonando():
+      // sacaría la app de encima del bloqueo justo cuando Android la puso ahí.
+      if (sonandoActual) return;
+      mostrarSonando({ clave: datos.clave, alarmaId: datos.alarmaId, etiqueta: datos.etiqueta });
+    });
+  }
   await AppNativa.addListener('resume', alVolver);
   await AppNativa.addListener('backButton', () => {
     if ($('#editor').open) $('#editor').close();
@@ -786,6 +833,7 @@ function iniciar() {
   $('#btn-mesita').addEventListener('click', activarMesita);
   $('#btn-permiso-notif').addEventListener('click', pedirNotificaciones);
   $('#btn-permiso-exactas').addEventListener('click', pedirExactas);
+  $('#btn-permiso-pantalla').addEventListener('click', pedirPantallaCompleta);
   $('#posponer').addEventListener('change', (e) => {
     estado.posponerMin = Number(e.target.value);
     guardar();
